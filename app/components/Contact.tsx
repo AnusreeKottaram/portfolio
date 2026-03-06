@@ -9,6 +9,7 @@ type Status    = "idle" | "sending" | "sent" | "error";
 export default function Contact() {
   const [form, setForm]     = useState<FormState>({ name: "", email: "", subject: "", message: "" });
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [e.target.id]: e.target.value }));
@@ -16,12 +17,37 @@ export default function Contact() {
 
   const handleSubmit = async (e: React.MouseEvent) => {
     e.preventDefault();
+
+    // Basic client-side validation
+    if (!form.name || !form.email || !form.subject || !form.message) {
+      setStatus("error");
+      setErrorMsg("Please fill in all fields.");
+      return;
+    }
+
     setStatus("sending");
-    // Wire up your form submission logic here (e.g. Resend, Formspree, EmailJS)
-    await new Promise((r) => setTimeout(r, 1200)); // simulate async
-    setStatus("sent");
-    setForm({ name: "", email: "", subject: "", message: "" });
-    setTimeout(() => setStatus("idle"), 4000);
+    setErrorMsg("");
+
+    try {
+      const res = await fetch("/api/contact", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Something went wrong.");
+      }
+
+      setStatus("sent");
+      setForm({ name: "", email: "", subject: "", message: "" });
+      setTimeout(() => setStatus("idle"), 5000);
+    } catch (err: unknown) {
+      setStatus("error");
+      setErrorMsg(err instanceof Error ? err.message : "Failed to send. Please try again.");
+    }
   };
 
   const inputCls =
@@ -149,7 +175,7 @@ export default function Contact() {
 
                 {status === "error" && (
                   <p className="font-mono text-xs text-red-400 text-center">
-                    Something went wrong. Please try again.
+                    {errorMsg || "Something went wrong. Please try again."}
                   </p>
                 )}
               </div>
